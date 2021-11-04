@@ -7,6 +7,8 @@ use rand_seeder::Seeder;
 mod math;
 use math::Vec2;
 
+use rayon::prelude::*;
+
 /// Flattened arrays of how each particle interacts with each other
 pub struct ParticleKinds {
 	kinds: usize,
@@ -226,7 +228,8 @@ impl World {
 		}
 	}
 
-	pub fn influence(&mut self, a: &mut Particle, others: &Vec<Particle>) {
+	pub fn influence(&self, a: &mut Particle) {
+        let others = &self.parts;
 		let mut neighbours = 0;
 		// let p = &self.params;
 		for b in others.iter() {
@@ -278,20 +281,26 @@ impl World {
 			a.vel = a.vel + Vec2::new(dx, dy) * f;
 		}
 		if neighbours >= 4 {
-			a.kind = self.rng.gen_range(0..self.kinds.kinds);
+			a.kind = rand::thread_rng().gen_range(0..self.kinds.kinds);
 		}
 	}
 	
 	pub fn step(&mut self) {
-		for i in 0..self.parts.len() {
-			let mut p = self.parts[i].clone();
-			let others = std::mem::take(&mut self.parts);
-			self.influence(&mut p, &others);
-			let _ = std::mem::replace(&mut self.parts, others);
-			p.update(&self.params);
-			self.parts[i] = p;
-		}
-	}
+        let threads = num_cpus::get();
+
+        let chunk_size = (self.parts.len() as f32 / threads as f32).floor() as usize;
+
+        let mut new_parts = self.parts.clone();
+
+        new_parts.par_chunks_mut(chunk_size).for_each(|parts| {
+            for point in parts {
+                self.influence(point);
+                point.update(&self.params);
+            }
+        });
+
+        self.parts = new_parts;
+    }
 }
 
 pub fn generate_seed() -> String {
