@@ -95,38 +95,38 @@ impl Particle {
 		self.pos = self.pos + self.vel;
 		self.vel = self.vel * (1.0 - params.friction);
 
-		// // Wrap particle around space
-		// let pos = &mut self.pos;
-		// if pos.x < 0.0 {
-		// 	pos.x = params.bounds.0;
-		// } else if pos.x >= params.bounds.0 {
-		// 	pos.x = 0.0;
-		// }
-		// if pos.y < 0.0 {
-		// 	pos.y = params.bounds.1;
-		// } else if pos.y >= params.bounds.1 {
-		// 	pos.y = 0.0;
-		// }
-
-		// Collide with walls
+		// Wrap particle around space
 		let pos = &mut self.pos;
-		let vel = &mut self.vel;
-		let dia = self.rad * self.rad;
-		let fric = 1.0 - (params.friction * 4.0);
-		if pos.x <= dia {
-			vel.x = -vel.x * fric;
-			pos.x = dia;
-		} else if pos.x >= params.bounds.0 - dia {
-			vel.x = -vel.x * fric;
-			pos.x = params.bounds.0 - dia;
+		if pos.x < 0.0 {
+			pos.x = params.bounds.0;
+		} else if pos.x >= params.bounds.0 {
+			pos.x = 0.0;
 		}
-		if pos.y <= dia {
-			vel.y = -vel.y * fric;
-			pos.y = dia;
-		} else if pos.y >= params.bounds.1 - dia {
-			vel.y = -vel.y * fric;
-			pos.y = params.bounds.1 - dia;
+		if pos.y < 0.0 {
+			pos.y = params.bounds.1;
+		} else if pos.y >= params.bounds.1 {
+			pos.y = 0.0;
 		}
+
+		// // Collide with walls
+		// let pos = &mut self.pos;
+		// let vel = &mut self.vel;
+		// let dia = self.rad * self.rad;
+		// let fric = 1.0 - (params.friction * 4.0);
+		// if pos.x <= dia {
+		// 	vel.x = -vel.x * fric;
+		// 	pos.x = dia;
+		// } else if pos.x >= params.bounds.0 - dia {
+		// 	vel.x = -vel.x * fric;
+		// 	pos.x = params.bounds.0 - dia;
+		// }
+		// if pos.y <= dia {
+		// 	vel.y = -vel.y * fric;
+		// 	pos.y = dia;
+		// } else if pos.y >= params.bounds.1 - dia {
+		// 	vel.y = -vel.y * fric;
+		// 	pos.y = params.bounds.1 - dia;
+		// }
 	}
 }
 
@@ -213,8 +213,9 @@ impl World {
 		let rng = &mut self.rng;
 		let dist = Normal::new(self.params.attrac_mean, self.params.attrac_dev).unwrap();
 
+		let start: f32 = rng.gen();
 		for i in 0..kinds.kinds {
-			let col = hsv_to_rgb(rng.gen(), 1.0, 1.0);
+			let col = hsv_to_rgb((start + (i as f32 / (kinds.kinds as f32 * 1.5))) % 1.0, 1.0, 1.0);
 			kinds.set_colour(i, col);
 			for j in 0..kinds.kinds {
 				let a = if i == j {
@@ -231,23 +232,23 @@ impl World {
 	pub fn influence(&self, a: &mut Particle) {
 		let others = &self.parts;
 		let mut neighbours = 0;
-		// let p = &self.params;
+		let p = &self.params;
 		for b in others.iter() {
 			// Get difference between positions
 			let mut dx = a.pos.x - b.pos.x;
 			let mut dy = a.pos.y - b.pos.y;
 
-			// // Wrap distance within the world to smallest value
-			// if dx > p.bounds.0 / 2.0 {
-			// 	dx -= p.bounds.0;
-			// } else if dx < -p.bounds.0 / 2.0 {
-			// 	dx += p.bounds.0;
-			// }
-			// if dy > p.bounds.1 / 2.0 {
-			// 	dy -= p.bounds.1;
-			// } else if dy < -p.bounds.1 / 2.0 {
-			// 	dy += p.bounds.1;
-			// }
+			// Wrap distance within the world to smallest value
+			if dx > p.bounds.0 / 2.0 {
+				dx -= p.bounds.0;
+			} else if dx < -p.bounds.0 / 2.0 {
+				dx += p.bounds.0;
+			}
+			if dy > p.bounds.1 / 2.0 {
+				dy -= p.bounds.1;
+			} else if dy < -p.bounds.1 / 2.0 {
+				dy += p.bounds.1;
+			}
 
 			// Get the range which interaction can happen
 			let r = self.kinds.range(a.kind, b.kind);
@@ -264,8 +265,10 @@ impl World {
 			dx /= dis;
 			dy /= dis;
 
-			if dis < 20.0 && a.kind == b.kind {
-				neighbours += 1;
+			if dis < 15.0 && a.kind == b.kind {
+				if b.vel.mag() < 0.03 {
+					neighbours += 1;
+				}
 			}
 
 			// Calculate and apply forces
@@ -276,28 +279,30 @@ impl World {
 			} else {
 				f = (1.0 / dis2) * -att;
 			}
-			f = f.min(1.0);
+			f = f32::min(f, 0.1);
 
 			a.vel = a.vel + Vec2::new(dx, dy) * f;
 		}
-		if neighbours >= 4 {
+		if neighbours >= 8 {
 			a.kind = rand::thread_rng().gen_range(0..self.kinds.kinds);
 		}
 	}
 
 	pub fn step(&mut self) {
-		let threads = num_cpus::get();
-
-		let chunk_size = (self.parts.len() as f32 / threads as f32).floor() as usize;
-
 		let mut new_parts = self.parts.clone();
-
+		
+		let threads = num_cpus::get();
+		let chunk_size = (self.parts.len() as f32 / threads as f32).floor() as usize;
 		new_parts.par_chunks_mut(chunk_size).for_each(|parts| {
 			for point in parts {
 				self.influence(point);
 				point.update(&self.params);
 			}
 		});
+		// for point in new_parts.iter_mut() {
+		// 	self.influence(point);
+		// 	point.update(&self.params);
+		// }
 
 		self.parts = new_parts;
 	}

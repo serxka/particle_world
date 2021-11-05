@@ -14,7 +14,7 @@ const PARAMS_DEF: WorldParameters = WorldParameters {
 	attrac_mean: 0.02,
 	attrac_dev: 0.04,
 	attrac_range: 1.0..50.0,
-	radius_range: 1.0..=1.0,
+	radius_range: 0.7..=1.3,
 	friction: 0.05,
 	seed: String::new(),
 };
@@ -36,7 +36,7 @@ fn main() -> Result<(), String> {
 
 	let mut para = PARAMS_DEF.clone();
 	para.seed = "".into();
-	let mut world = World::new(200, 7, para);
+	let mut world = World::new(150, 7, para);
 	let mut paused = false;
 	let mut steps: usize = 10;
 
@@ -50,6 +50,7 @@ fn main() -> Result<(), String> {
 				Event::KeyDown {
 					keycode: Some(key), ..
 				} => match key {
+					Keycode::Q => break 'running,
 					Keycode::R => world.reseed(PARAMS_DEF),
 					Keycode::Space => paused = !paused,
 					Keycode::Left => steps = steps.saturating_sub(1).max(1),
@@ -69,16 +70,16 @@ fn main() -> Result<(), String> {
 		canvas.clear();
 
 		let window_size = size.0.min(size.1);
-		let scale = window_size / 100;
+		let scale = window_size as f32 / 100.0;
 		for part in &world.parts {
 			let col = world.kinds.colour(part.kind);
 			canvas.set_draw_color(sdl2::pixels::Color::RGB(col.0, col.1, col.2));
 
 			let pos = (
-				(part.pos.x * scale as f32) as i32,
-				(part.pos.y * scale as f32) as i32,
+				(part.pos.x * scale) as i32,
+				(part.pos.y * scale) as i32,
 			);
-			draw_circle(&mut canvas, pos, (part.rad * scale as f32) as i32);
+			draw_circle(&mut canvas, pos, (part.rad * scale) as i32);
 		}
 
 		canvas.present();
