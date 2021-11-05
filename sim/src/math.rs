@@ -13,7 +13,7 @@ impl Vec2 {
 	}
 	pub fn abs(&self) -> Vec2 {
 		Vec2::new(self.x.abs(), self.y.abs())
-	}	
+	}
 	pub fn trans_along(&self, ang: f32, mag: f32) -> Self {
 		let d = Vec2::new(ang.cos(), ang.sin()) * mag;
 		*self + d

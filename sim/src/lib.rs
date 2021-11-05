@@ -1,7 +1,7 @@
 use core::ops::{Range, RangeInclusive};
 
-use rand::{Rng, rngs::SmallRng, SeedableRng};
-use rand_distr::{Normal, Distribution, Alphanumeric};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
+use rand_distr::{Alphanumeric, Distribution, Normal};
 use rand_seeder::Seeder;
 
 mod math;
@@ -21,9 +21,9 @@ impl ParticleKinds {
 	pub fn new(kinds: usize) -> ParticleKinds {
 		ParticleKinds {
 			kinds: kinds,
-			colours: vec![(0,0,0); kinds],
-			attrac: vec![0.0; kinds*kinds],
-			range: vec![0.0; kinds*kinds],
+			colours: vec![(0, 0, 0); kinds],
+			attrac: vec![0.0; kinds * kinds],
+			range: vec![0.0; kinds * kinds],
 		}
 	}
 	pub fn clear(&mut self) {
@@ -63,7 +63,7 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
 	let p = v * (1.0 - s);
 	let q = v * (1.0 - f * s);
 	let t = v * (1.0 - (1.0 - f) * s);
-	
+
 	let (r, g, b) = match (h * 6.0).floor() as i32 % 6 {
 		0 => (v, t, p),
 		1 => (q, v, p),
@@ -71,9 +71,9 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
 		3 => (p, q, v),
 		4 => (t, p, v),
 		5 => (v, p, q),
-		_ => unreachable!()
+		_ => unreachable!(),
 	};
-	
+
 	((r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8)
 }
 
@@ -89,12 +89,12 @@ pub struct Particle {
 	pub kind: usize,
 }
 
-impl Particle {	
+impl Particle {
 	pub fn update(&mut self, params: &WorldParameters) {
 		// Apply velocity and friction
 		self.pos = self.pos + self.vel;
 		self.vel = self.vel * (1.0 - params.friction);
-		
+
 		// // Wrap particle around space
 		// let pos = &mut self.pos;
 		// if pos.x < 0.0 {
@@ -107,11 +107,11 @@ impl Particle {
 		// } else if pos.y >= params.bounds.1 {
 		// 	pos.y = 0.0;
 		// }
-		
+
 		// Collide with walls
 		let pos = &mut self.pos;
 		let vel = &mut self.vel;
-		let dia = self.rad*self.rad;
+		let dia = self.rad * self.rad;
 		let fric = 1.0 - (params.friction * 4.0);
 		if pos.x <= dia {
 			vel.x = -vel.x * fric;
@@ -161,12 +161,12 @@ impl World {
 			parts: Vec::with_capacity(count),
 			params: params,
 			kinds: ParticleKinds::new(types),
-			rng: SmallRng::from_rng(rand::thread_rng()).unwrap()
+			rng: SmallRng::from_rng(rand::thread_rng()).unwrap(),
 		};
 		world.reseed(world.params.clone());
 		world
 	}
-	
+
 	pub fn reseed(&mut self, mut params: WorldParameters) {
 		let count = self.parts.capacity();
 		self.parts.clear();
@@ -177,7 +177,7 @@ impl World {
 		println!("Seed: \"{}\"", params.seed);
 		self.rng = Seeder::from(&params.seed).make_rng();
 		self.params = params;
-		
+
 		self.seed_types();
 		for _ in 0..count {
 			let part = self.new_particle();
@@ -189,7 +189,7 @@ impl World {
 		let part = self.new_particle();
 		self.parts.push(part);
 	}
-	
+
 	pub fn del_particle(&mut self) {
 		let _ = self.parts.pop();
 	}
@@ -207,12 +207,12 @@ impl World {
 			kind: k,
 		}
 	}
-	
+
 	fn seed_types(&mut self) {
 		let kinds = &mut self.kinds;
 		let rng = &mut self.rng;
 		let dist = Normal::new(self.params.attrac_mean, self.params.attrac_dev).unwrap();
-		
+
 		for i in 0..kinds.kinds {
 			let col = hsv_to_rgb(rng.gen(), 1.0, 1.0);
 			kinds.set_colour(i, col);
@@ -229,14 +229,14 @@ impl World {
 	}
 
 	pub fn influence(&self, a: &mut Particle) {
-        let others = &self.parts;
+		let others = &self.parts;
 		let mut neighbours = 0;
 		// let p = &self.params;
 		for b in others.iter() {
 			// Get difference between positions
 			let mut dx = a.pos.x - b.pos.x;
 			let mut dy = a.pos.y - b.pos.y;
-			
+
 			// // Wrap distance within the world to smallest value
 			// if dx > p.bounds.0 / 2.0 {
 			// 	dx -= p.bounds.0;
@@ -248,17 +248,17 @@ impl World {
 			// } else if dy < -p.bounds.1 / 2.0 {
 			// 	dy += p.bounds.1;
 			// }
-			
+
 			// Get the range which interaction can happen
 			let r = self.kinds.range(a.kind, b.kind);
-			
+
 			// Get distance squared
-			let dis2 = dx*dx + dy*dy;
+			let dis2 = dx * dx + dy * dy;
 			// If outside of area of influence continue to next particle
-			if dis2 > r*r || dis2 < 0.01 {
+			if dis2 > r * r || dis2 < 0.01 {
 				continue;
 			}
-			
+
 			// Normalise the distance so we get an "angle" to the particle
 			let dis = f32::sqrt(dis2);
 			dx /= dis;
@@ -271,36 +271,36 @@ impl World {
 			// Calculate and apply forces
 			let mut f;
 			let att = self.kinds.attrac(a.kind, b.kind) + self.kinds.attrac(b.kind, a.kind);
-			if dis > a.rad*2.0 + b.rad*2.0 {
+			if dis > a.rad * 2.0 + b.rad * 2.0 {
 				f = (1.0 / dis2) * att;
 			} else {
 				f = (1.0 / dis2) * -att;
 			}
 			f = f.min(1.0);
-			
+
 			a.vel = a.vel + Vec2::new(dx, dy) * f;
 		}
 		if neighbours >= 4 {
 			a.kind = rand::thread_rng().gen_range(0..self.kinds.kinds);
 		}
 	}
-	
+
 	pub fn step(&mut self) {
-        let threads = num_cpus::get();
+		let threads = num_cpus::get();
 
-        let chunk_size = (self.parts.len() as f32 / threads as f32).floor() as usize;
+		let chunk_size = (self.parts.len() as f32 / threads as f32).floor() as usize;
 
-        let mut new_parts = self.parts.clone();
+		let mut new_parts = self.parts.clone();
 
-        new_parts.par_chunks_mut(chunk_size).for_each(|parts| {
-            for point in parts {
-                self.influence(point);
-                point.update(&self.params);
-            }
-        });
+		new_parts.par_chunks_mut(chunk_size).for_each(|parts| {
+			for point in parts {
+				self.influence(point);
+				point.update(&self.params);
+			}
+		});
 
-        self.parts = new_parts;
-    }
+		self.parts = new_parts;
+	}
 }
 
 pub fn generate_seed() -> String {
@@ -310,5 +310,4 @@ pub fn generate_seed() -> String {
 		.map(char::from)
 		.take(8)
 		.collect()
-
 }
