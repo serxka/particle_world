@@ -7,5 +7,4 @@ edition = "2018"
 rand = { version = "0.8", features = ["small_rng"] }
 rand_distr = "0.4"
 rand_seeder = "0.2"
-rayon = "1.5.1"
-num_cpus = "1.13.0"
+base64 = "0.13"
